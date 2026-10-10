@@ -1,0 +1,107 @@
+-- =====================================================
+-- 交通库相关表
+CREATE DATABASE IF NOT EXISTS transportation;
+USE transportation;
+-- 1. 车辆公司表
+CREATE TABLE vehicle_company (
+    company_id VARCHAR(20) PRIMARY KEY COMMENT '车辆公司编号',
+    company_name VARCHAR(100) NOT NULL COMMENT '公司名称',
+    business_type VARCHAR(50) NOT NULL COMMENT '经营类型（客运/货运/危化品运输）',
+    establish_date DATE COMMENT '成立日期',
+    legal_person VARCHAR(50) COMMENT '法人',
+    contact_phone VARCHAR(20) COMMENT '联系电话',
+    address VARCHAR(200) COMMENT '公司地址',
+    area_id CHAR(6) NOT NULL COMMENT '注册地区划代码',
+    status ENUM('运营','停业','注销') DEFAULT '运营' COMMENT '经营状态',
+    FOREIGN KEY (area_id) REFERENCES common.administrative_division(id)
+) ENGINE=InnoDB COMMENT='车辆运输公司信息表';
+
+-- 2. 驾驶员表（车辆公司的员工）
+CREATE TABLE driver (
+    driver_id VARCHAR(18) PRIMARY KEY COMMENT '身份证号',
+    name VARCHAR(50) NOT NULL COMMENT '姓名',
+    gender ENUM('男','女') NOT NULL COMMENT '性别',
+    birth_date DATE NOT NULL COMMENT '出生日期',
+    license_type VARCHAR(5) NOT NULL COMMENT '驾照类型代码',
+    issue_date DATE NOT NULL COMMENT '发证日期',
+    valid_years TINYINT NOT NULL COMMENT '有效期(年)',
+    phone VARCHAR(20) COMMENT '联系电话',
+    address VARCHAR(200) COMMENT '联系地址',
+    area_id CHAR(6) NOT NULL COMMENT '行政区划代码',
+    status ENUM('正常','暂扣','吊销','过期') DEFAULT '正常' COMMENT '驾照状态',
+    company_id VARCHAR(20) NOT NULL COMMENT '所属车辆公司ID',
+    INDEX idx_name (name),
+    INDEX idx_license (license_type),
+    FOREIGN KEY (area_id) REFERENCES common.administrative_division(id),
+    FOREIGN KEY (license_type) REFERENCES common.license_type_dict(license_code),
+    FOREIGN KEY (company_id) REFERENCES vehicle_company(company_id)
+) ENGINE=InnoDB COMMENT='驾驶员信息表（车辆公司员工）';
+
+-- 3. 车辆登记表
+CREATE TABLE vehicle (
+    vehicle_id VARCHAR(20) PRIMARY KEY COMMENT '车辆唯一编号',
+    plate_number VARCHAR(10) NOT NULL UNIQUE COMMENT '车牌号',
+    owner_id VARCHAR(18) NOT NULL COMMENT '车主（驾驶员）身份证号',
+    vehicle_type_code VARCHAR(20) NOT NULL COMMENT '车辆类型代码',
+    brand VARCHAR(30) NOT NULL COMMENT '品牌',
+    model VARCHAR(30) NOT NULL COMMENT '型号',
+    manufacture_year YEAR NOT NULL COMMENT '生产年份',
+    load_capacity DECIMAL(8,2) COMMENT '载重(吨)',
+    seat_count TINYINT UNSIGNED COMMENT '座位数（客车用）',
+    color VARCHAR(20) COMMENT '颜色',
+    register_date DATE NOT NULL COMMENT '注册日期',
+    area_id CHAR(6) NOT NULL COMMENT '注册地区划代码',
+    insurance_expire DATE COMMENT '保险到期日',
+    company_id VARCHAR(20) NOT NULL COMMENT '所属车辆公司ID',
+    INDEX idx_plate (plate_number),
+    INDEX idx_owner (owner_id),
+    INDEX idx_type (vehicle_type_code),
+    FOREIGN KEY (owner_id) REFERENCES driver(driver_id),
+    FOREIGN KEY (area_id) REFERENCES common.administrative_division(id),
+    FOREIGN KEY (vehicle_type_code) REFERENCES common.vehicle_type_dict(type_code),
+    FOREIGN KEY (company_id) REFERENCES vehicle_company(company_id)
+) ENGINE=InnoDB COMMENT='车辆登记表';
+
+-- 4. 船舶公司表（独立）
+CREATE TABLE shipping_company (
+    company_id VARCHAR(20) PRIMARY KEY COMMENT '船舶公司编号',
+    company_name VARCHAR(100) NOT NULL COMMENT '公司名称',
+    business_type VARCHAR(50) NOT NULL COMMENT '经营类型（集装箱/散货/油轮/客运）',
+    establish_date DATE NOT NULL COMMENT '成立日期',
+    legal_person VARCHAR(50) NOT NULL COMMENT '法人',
+    contact_phone VARCHAR(20) COMMENT '联系电话',
+    address VARCHAR(200) COMMENT '公司地址',
+    area_id CHAR(6) NOT NULL COMMENT '行政区划代码',
+    status ENUM('运营','停业','注销') DEFAULT '运营' COMMENT '经营状态',
+    FOREIGN KEY (area_id) REFERENCES common.administrative_division(id)
+) ENGINE=InnoDB COMMENT='船舶公司信息表';
+
+-- 5. 员工表（船舶公司的员工）
+CREATE TABLE employee (
+    employee_id VARCHAR(18) PRIMARY KEY COMMENT '身份证号',
+    name VARCHAR(50) NOT NULL COMMENT '姓名',
+    gender ENUM('男','女') NOT NULL COMMENT '性别',
+    employee_type_code VARCHAR(20) NOT NULL COMMENT '人员类型代码（船长/大副等）',
+    company_id VARCHAR(20) NOT NULL COMMENT '所属船舶公司ID',
+    hire_date DATE COMMENT '入职日期',
+    phone VARCHAR(20) COMMENT '联系电话',
+    status ENUM('在职','离职','退休') DEFAULT '在职' COMMENT '状态',
+    FOREIGN KEY (employee_type_code) REFERENCES common.employee_type_dict(type_code),
+    FOREIGN KEY (company_id) REFERENCES shipping_company(company_id)
+) ENGINE=InnoDB COMMENT='船舶公司员工表';
+
+-- 6. 船舶基础信息表（船舶公司的子表）（通过mmsi关联Postgre中的ais数据）
+CREATE TABLE vessel (
+    mmsi INT UNSIGNED NOT NULL COMMENT '船舶MMSI，9位唯一标识',
+    company_id VARCHAR(20) NOT NULL COMMENT '所属船舶公司ID',
+    vessel_type SMALLINT COMMENT '船舶类型代码（参照AIS标准）',
+    max_load DECIMAL(10,2) COMMENT '最大荷载量（吨）',
+    max_speed DECIMAL(4,1) COMMENT '最大航速（节）',
+    endurance VARCHAR(32) COMMENT '自持力（天/海里）',
+    captain_name VARCHAR(32) COMMENT '船长姓名',
+    area_id CHAR(6) NOT NULL COMMENT '注册地区划代码',
+    UNIQUE KEY uk_mmsi (mmsi),
+    FOREIGN KEY (company_id) REFERENCES shipping_company(company_id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    FOREIGN KEY (area_id) REFERENCES common.administrative_division(id),
+    FOREIGN KEY (vessel_type) REFERENCES common.vessel_type_dict(type_code)
+) ENGINE=InnoDB COMMENT='船舶基础信息表';

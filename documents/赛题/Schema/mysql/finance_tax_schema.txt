@@ -1,0 +1,89 @@
+-- =====================================================
+-- 金融库
+CREATE DATABASE IF NOT EXISTS finance_tax;
+USE finance_tax;
+
+-- 公司主表
+CREATE TABLE companies (
+    company_id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '公司唯一ID',
+    company_name VARCHAR(200) NOT NULL UNIQUE COMMENT '公司法定全称',
+    stock_code VARCHAR(20) UNIQUE COMMENT '股票代码（若上市）',
+    established_year YEAR COMMENT '注册/成立年份',
+    registered_capital DECIMAL(18,2) COMMENT '注册资本（万元）',
+    industry_code VARCHAR(20) COMMENT '所属行业代码',
+    registration_type_code VARCHAR(20) COMMENT '登记注册类型代码',
+    is_private BOOLEAN COMMENT '是否民营企业',
+    size_category_code VARCHAR(10) COMMENT '规模划型代码',
+    is_key_high_tech BOOLEAN DEFAULT FALSE COMMENT '是否重点扶持高新技术企业',
+    is_tech_advanced_service BOOLEAN DEFAULT FALSE COMMENT '是否技术先进型服务企业',
+
+    FOREIGN KEY (industry_code) REFERENCES common.dict_industry(industry_code),
+    FOREIGN KEY (registration_type_code) REFERENCES common.dict_registration_type(type_code),
+    FOREIGN KEY (size_category_code) REFERENCES common.dict_size_category(size_code)
+) COMMENT='公司基础信息主表';
+
+-- 股票信息表
+CREATE TABLE stocks (
+    stock_id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '词条ID',
+    company_id BIGINT NOT NULL COMMENT '关联公司ID',
+    stock_code VARCHAR(20) NOT NULL UNIQUE COMMENT '股票代码',
+    stock_name VARCHAR(50) NOT NULL COMMENT '股票简称',
+    stock_full_name VARCHAR(200) COMMENT '公司全称（冗余）',
+    share_right_type VARCHAR(20) DEFAULT 'COMMON' COMMENT '股东权利类型（引用字典）',
+    register_type VARCHAR(20) DEFAULT 'REGISTERED' COMMENT '记名方式',
+    par_value_type VARCHAR(20) DEFAULT 'PAR' COMMENT '面额类型',
+    market_class VARCHAR(5) COMMENT '上市地点分类（A/B/H/N等）',
+    listing_date DATE COMMENT '上市时间',
+    total_shares BIGINT NOT NULL COMMENT '股本（股）',
+    current_price DECIMAL(10,2) COMMENT '最新股票价格（元）',
+
+    FOREIGN KEY (company_id) REFERENCES companies(company_id)
+) COMMENT='股票基本信息表';
+
+-- 股票日成交信息表
+CREATE TABLE stock_daily_trades (
+    trade_id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '词条ID',
+    stock_id BIGINT NOT NULL COMMENT '关联股票ID',
+    trade_date DATE NOT NULL COMMENT '交易日期',
+    volume BIGINT NOT NULL COMMENT '成交量（股）',
+    avg_trade_size INT COMMENT '每笔成交股数',
+    open_price DECIMAL(10,2) NOT NULL COMMENT '开盘价',
+    close_price DECIMAL(10,2) NOT NULL COMMENT '收盘价',
+    high_price DECIMAL(10,2) NOT NULL COMMENT '最高价',
+    low_price DECIMAL(10,2) NOT NULL COMMENT '最低价',
+
+    FOREIGN KEY (stock_id) REFERENCES stocks(stock_id),
+    UNIQUE KEY uk_stock_date (stock_id, trade_date)
+) COMMENT='股票每日成交汇总信息';
+
+-- 公司财务信息表
+CREATE TABLE company_financials (
+    financial_id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '词条ID',
+    company_id BIGINT NOT NULL COMMENT '关联公司ID',
+    report_date DATE NOT NULL COMMENT '报表日期',
+    dividend_cash DECIMAL(18,2) DEFAULT 0 COMMENT '现金分红总额（万元）',
+    dividend_stock INT DEFAULT 0 COMMENT '每股股息（分/股）',
+    total_assets DECIMAL(18,2) NOT NULL COMMENT '总资产（万元）',
+    total_liabilities DECIMAL(18,2) NOT NULL COMMENT '总负债（万元）',
+
+    FOREIGN KEY (company_id) REFERENCES companies(company_id),
+    UNIQUE KEY uk_company_report (company_id, report_date)
+) COMMENT='公司定期财务摘要信息';
+
+-- 企业所得税申报信息表
+CREATE TABLE corporate_income_tax_returns (
+    return_id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '申报ID',
+    company_id BIGINT NOT NULL COMMENT '关联公司ID',
+    tax_year YEAR NOT NULL COMMENT '纳税年度',
+    revenue DECIMAL(18,2) NOT NULL COMMENT '收入总额（万元）',
+    non_taxable_income DECIMAL(18,2) DEFAULT 0 COMMENT '不征税收入与免税收入（万元）',
+    deductions DECIMAL(18,2) NOT NULL COMMENT '扣除金额（万元）',
+    prior_year_losses DECIMAL(18,2) DEFAULT 0 COMMENT '允许弥补的以前年度亏损（万元）',
+    building_asset_value DECIMAL(18,2) COMMENT '房屋建筑物资产原值（万元）',
+    employee_count INT COMMENT '从业人数（全年季度平均值）',
+    total_assets DECIMAL(18,2) COMMENT '资产总额（万元，全年季度平均值）',
+    is_restricted_industry BOOLEAN DEFAULT FALSE COMMENT '是否从事国家限制或禁止行业',
+
+    FOREIGN KEY (company_id) REFERENCES companies(company_id),
+    UNIQUE KEY uk_company_year (company_id, tax_year)
+) COMMENT='企业所得税年度申报信息表';

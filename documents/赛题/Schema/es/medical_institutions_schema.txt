@@ -1,0 +1,26 @@
+-- =====================================================
+-- 医院库（ES）
+PUT /medical_institutions
+{
+  "mappings": {
+    "properties": {
+      "name": { "type": "text", "fields": { "keyword": { "type": "keyword" } } },
+      "city": { "type": "keyword" },
+      "district": { "type": "keyword" },
+      "address": { "type": "text" },
+      "location": { "type": "geo_point" },
+      "level": { "type": "keyword" },            // 三甲、三乙、二甲、二乙、一甲等
+      "bed_count": { "type": "integer" },
+      "doctor_count": { "type": "integer" },
+      "nurse_count": { "type": "integer" },
+      "ambulance_count": { "type": "integer" },   // 救护车数量
+      "department_count": { "type": "integer" },  // 科室数量
+      "annual_outpatient": { "type": "long" },    // 年门诊量（人次）
+      "has_icu": { "type": "boolean" },           // 是否有ICU
+      "is_teaching_hospital": { "type": "boolean" }, // 是否教学医院
+      "emergency_24h": { "type": "boolean" },
+      "rating": { "type": "float" },
+      "founded_year": { "type": "integer" }       // 成立年份
+    }
+  }
+}

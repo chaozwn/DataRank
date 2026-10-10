@@ -1,0 +1,127 @@
+-- =====================================================
+-- 电商库
+CREATE DATABASE IF NOT EXISTS ecommerce
+  DEFAULT CHARACTER SET utf8mb4
+  DEFAULT COLLATE utf8mb4_unicode_ci;
+
+USE ecommerce;
+
+CREATE TABLE customer (
+  customer_id BIGINT NOT NULL COMMENT '用户ID',
+  customer_name VARCHAR(100) NOT NULL COMMENT '用户姓名',
+  gender ENUM('M', 'F', 'U') NOT NULL DEFAULT 'U' COMMENT '性别：M男，F女，U未知',
+  phone VARCHAR(32) DEFAULT NULL COMMENT '手机号',
+  email VARCHAR(128) DEFAULT NULL COMMENT '邮箱',
+  level_code VARCHAR(32) NOT NULL COMMENT '用户等级编码，关联common.customer_level_dict.level_code',
+  status_code VARCHAR(32) NOT NULL COMMENT '用户状态编码，关联common.customer_status_dict.status_code',
+  province_code VARCHAR(12) NOT NULL COMMENT '省级行政区划编码，关联common.administrative_division.division_code',
+  city_code VARCHAR(12) NOT NULL COMMENT '城市行政区划编码，关联common.administrative_division.division_code',
+  register_time DATETIME NOT NULL COMMENT '注册时间',
+  last_login_time DATETIME DEFAULT NULL COMMENT '最近登录时间',
+  growth_value INT NOT NULL DEFAULT 0 COMMENT '成长值',
+  PRIMARY KEY (customer_id),
+  UNIQUE KEY uk_customer_phone (phone),
+  KEY idx_customer_level (level_code),
+  KEY idx_customer_status (status_code),
+  KEY idx_customer_region (province_code, city_code),
+  KEY idx_customer_register_time (register_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
+
+CREATE TABLE product (
+  product_id BIGINT NOT NULL COMMENT '商品ID',
+  product_name VARCHAR(200) NOT NULL COMMENT '商品名称',
+  category_id BIGINT NOT NULL COMMENT '商品分类ID，关联common.product_category.category_id',
+  brand_name VARCHAR(100) NOT NULL COMMENT '品牌名称',
+  status_code VARCHAR(32) NOT NULL COMMENT '商品状态编码，关联common.product_status_dict.status_code',
+  sale_price DECIMAL(12,2) NOT NULL COMMENT '销售单价',
+  cost_price DECIMAL(12,2) NOT NULL COMMENT '成本单价',
+  listed_time DATETIME NOT NULL COMMENT '上架时间',
+  PRIMARY KEY (product_id),
+  KEY idx_product_category (category_id),
+  KEY idx_product_status (status_code),
+  KEY idx_product_brand (brand_name),
+  KEY idx_product_price (sale_price)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商品表';
+
+CREATE TABLE inventory (
+  inventory_id BIGINT NOT NULL COMMENT '库存ID',
+  product_id BIGINT NOT NULL COMMENT '商品ID，关联ecommerce.product.product_id',
+  warehouse_code VARCHAR(32) NOT NULL COMMENT '仓库编码',
+  warehouse_name VARCHAR(100) NOT NULL COMMENT '仓库名称',
+  province_code VARCHAR(12) NOT NULL COMMENT '仓库所在省份编码，关联common.administrative_division.division_code',
+  city_code VARCHAR(12) NOT NULL COMMENT '仓库所在城市编码，关联common.administrative_division.division_code',
+  stock_quantity INT NOT NULL DEFAULT 0 COMMENT '当前库存数量',
+  locked_quantity INT NOT NULL DEFAULT 0 COMMENT '锁定库存数量',
+  safety_stock INT NOT NULL DEFAULT 0 COMMENT '安全库存数量',
+  updated_time DATETIME NOT NULL COMMENT '库存更新时间',
+  PRIMARY KEY (inventory_id),
+  UNIQUE KEY uk_inventory_product_warehouse (product_id, warehouse_code),
+  KEY idx_inventory_product (product_id),
+  KEY idx_inventory_region (province_code, city_code),
+  CONSTRAINT fk_inventory_product FOREIGN KEY (product_id) REFERENCES product(product_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='库存表';
+
+CREATE TABLE orders (
+  order_id BIGINT NOT NULL COMMENT '订单ID',
+  order_no VARCHAR(64) NOT NULL COMMENT '订单编号',
+  customer_id BIGINT NOT NULL COMMENT '用户ID，关联ecommerce.customer.customer_id',
+  order_status_code VARCHAR(32) NOT NULL COMMENT '订单状态编码，关联common.order_status_dict.status_code',
+  order_channel_code VARCHAR(32) NOT NULL COMMENT '下单渠道编码，关联common.order_channel_dict.channel_code',
+  platform_code VARCHAR(32) NOT NULL COMMENT '销售平台编码，关联common.platform_dict.platform_code',
+  order_time DATETIME NOT NULL COMMENT '下单时间',
+  pay_time DATETIME DEFAULT NULL COMMENT '支付时间',
+  finish_time DATETIME DEFAULT NULL COMMENT '完成时间',
+  total_amount DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '订单商品总金额',
+  discount_amount DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '订单优惠金额',
+  freight_amount DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '运费金额',
+  payable_amount DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '订单应付金额',
+  receiver_province_code VARCHAR(12) NOT NULL COMMENT '收货省份编码，关联common.administrative_division.division_code',
+  receiver_city_code VARCHAR(12) NOT NULL COMMENT '收货城市编码，关联common.administrative_division.division_code',
+  PRIMARY KEY (order_id),
+  UNIQUE KEY uk_orders_order_no (order_no),
+  KEY idx_orders_customer (customer_id),
+  KEY idx_orders_status (order_status_code),
+  KEY idx_orders_time (order_time),
+  KEY idx_orders_channel_platform (order_channel_code, platform_code),
+  KEY idx_orders_receiver_region (receiver_province_code, receiver_city_code),
+  CONSTRAINT fk_orders_customer FOREIGN KEY (customer_id) REFERENCES customer(customer_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单表';
+
+CREATE TABLE order_item (
+  order_item_id BIGINT NOT NULL COMMENT '订单明细ID',
+  order_id BIGINT NOT NULL COMMENT '订单ID，关联ecommerce.orders.order_id',
+  product_id BIGINT NOT NULL COMMENT '商品ID，关联ecommerce.product.product_id',
+  quantity INT NOT NULL COMMENT '购买数量',
+  unit_price DECIMAL(12,2) NOT NULL COMMENT '成交单价',
+  discount_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00 COMMENT '明细优惠金额',
+  item_amount DECIMAL(14,2) NOT NULL COMMENT '明细应付金额',
+  item_cost_amount DECIMAL(14,2) NOT NULL COMMENT '明细成本金额',
+  refund_quantity INT NOT NULL DEFAULT 0 COMMENT '退款数量',
+  refund_amount DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '退款金额',
+  refund_reason_code VARCHAR(32) DEFAULT NULL COMMENT '退款原因编码，关联common.refund_reason_dict.reason_code',
+  PRIMARY KEY (order_item_id),
+  KEY idx_order_item_order (order_id),
+  KEY idx_order_item_product (product_id),
+  KEY idx_order_item_refund_reason (refund_reason_code),
+  CONSTRAINT fk_order_item_order FOREIGN KEY (order_id) REFERENCES orders(order_id),
+  CONSTRAINT fk_order_item_product FOREIGN KEY (product_id) REFERENCES product(product_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单明细表';
+
+CREATE TABLE payment (
+  payment_id BIGINT NOT NULL COMMENT '支付ID',
+  payment_no VARCHAR(64) NOT NULL COMMENT '支付流水号',
+  order_id BIGINT NOT NULL COMMENT '订单ID，关联ecommerce.orders.order_id',
+  payment_method_code VARCHAR(32) NOT NULL COMMENT '支付方式编码，关联common.payment_method_dict.method_code',
+  payment_status_code VARCHAR(32) NOT NULL COMMENT '支付状态编码，关联common.payment_status_dict.status_code',
+  payment_amount DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '支付金额',
+  refund_amount DECIMAL(14,2) NOT NULL DEFAULT 0.00 COMMENT '退款金额',
+  paid_time DATETIME DEFAULT NULL COMMENT '支付成功时间',
+  created_time DATETIME NOT NULL COMMENT '支付记录创建时间',
+  PRIMARY KEY (payment_id),
+  UNIQUE KEY uk_payment_no (payment_no),
+  UNIQUE KEY uk_payment_order (order_id),
+  KEY idx_payment_method (payment_method_code),
+  KEY idx_payment_status (payment_status_code),
+  KEY idx_payment_paid_time (paid_time),
+  CONSTRAINT fk_payment_order FOREIGN KEY (order_id) REFERENCES orders(order_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='支付表';

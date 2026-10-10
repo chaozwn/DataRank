@@ -1,0 +1,38 @@
+-- =====================================================
+-- 船舶实时库（PG）
+CREATE TABLE public.vessel_ais_data (
+    id bigint NOT NULL,
+    mmsi integer NOT NULL,
+    "timestamp" timestamp without time zone NOT NULL,
+    longitude numeric(9,6) NOT NULL,
+    latitude numeric(8,6) NOT NULL,
+    sog numeric(4,1) NOT NULL,
+    cog numeric(5,1) NOT NULL,
+    heading smallint,
+    nav_status smallint NOT NULL,
+    rot numeric(4,1),
+    destination character varying(32),
+    draught numeric(4,2),
+    vessel_type smallint,
+    imo bigint,
+    call_sign character varying(10),
+    eta timestamp without time zone,
+    last_update timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    geom public.geometry(Point,4326) NOT NULL,
+    CONSTRAINT vessel_ais_data_heading_check CHECK (((heading >= 0) AND (heading <= 359))),
+    CONSTRAINT vessel_ais_data_mmsi_check CHECK (((mmsi >= 1) AND (mmsi <= 999999999))),
+    CONSTRAINT vessel_ais_data_nav_status_check CHECK (((nav_status >= 0) AND (nav_status <= 255)))
+);
+ALTER TABLE public.vessel_ais_data OWNER TO postgres;
+
+COMMENT ON TABLE public.vessel_ais_data IS '船舶AIS数据存储表';
+COMMENT ON COLUMN public.vessel_ais_data.id IS '主键ID';
+COMMENT ON COLUMN public.vessel_ais_data.mmsi IS '船舶MMSI码';
+COMMENT ON COLUMN public.vessel_ais_data."timestamp" IS '数据时间';
+COMMENT ON COLUMN public.vessel_ais_data.longitude IS '经度';
+COMMENT ON COLUMN public.vessel_ais_data.latitude IS '纬度';
+COMMENT ON COLUMN public.vessel_ais_data.sog IS '航速';
+COMMENT ON COLUMN public.vessel_ais_data.cog IS '航向';
+COMMENT ON COLUMN public.vessel_ais_data.heading IS '船首向';
+COMMENT ON COLUMN public.vessel_ais_data.nav_status IS '航行状态';
+COMMENT ON COLUMN public.vessel_ais_data.geom IS '空间位置';
